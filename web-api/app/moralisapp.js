@@ -51,6 +51,6 @@ Moralis.start({
   apiKey: moralisKey,
 }).then(() => {
   app.listen(port, () => {
-    console.log(`Listening for API Calls`);
+    console.log(`Listening for API Calls on http://localhost:${port}/`);
   });
 });
