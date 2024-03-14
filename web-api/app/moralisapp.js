@@ -5,6 +5,7 @@ const app = express();
 const cors = require("cors");
 const port = 3000;
 const moralisKey = process.env.MORALIS_API_KEY;
+const chainId = "0xa4b1";
 
 app.use(cors());
 app.use(express.json());
@@ -14,7 +15,7 @@ app.get("/balance/:walletAddress", async (req, res) => {
     const walletAddress = req.params.walletAddress;
 
     const response = await Moralis.EvmApi.balance.getNativeBalance({
-      chain: "0xa4b1",
+      chain: chainId,
       address: walletAddress,
     });
 
@@ -32,9 +33,9 @@ app.get("/nft/:walletAddress", async (req, res) => {
     const walletAddress = req.params.walletAddress;
 
     const response = await Moralis.EvmApi.nft.getWalletNFTs({
-      chain: "0xa4b1",
+      chain: chainId,
       format: "decimal",
-      mediaItems: false,
+      mediaItems: true,
       address: walletAddress,
     });
 
