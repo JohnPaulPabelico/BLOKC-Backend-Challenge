@@ -10,38 +10,59 @@ const chainId = "0xa4b1";
 app.use(cors());
 app.use(express.json());
 
+async function getNativeBalance(walletAddress) {
+  const balanceInWei = await Moralis.EvmApi.balance.getNativeBalance({
+    chain: chainId,
+    address: walletAddress,
+  });
+  const balanceInEth = balanceInWei.result.balance.ether;
+
+  return { balanceInEth };
+}
+
+async function getWalletNFTs(walletAddress) {
+  const nftsInWallet = await Moralis.EvmApi.nft.getWalletNFTs({
+    chain: chainId,
+    format: "decimal",
+    mediaItems: true,
+    address: walletAddress,
+  });
+
+  const nfts = nftsInWallet.result.map((nft) => ({
+    name: nft.result.name,
+    amount: nft.result.amount,
+    metadata: nft.result.metadata,
+  }));
+
+  return { nfts };
+}
+
+//FETCH NATIVE BALANCE OF WALLET
 app.get("/balance/:walletAddress", async (req, res) => {
   try {
     const walletAddress = req.params.walletAddress;
 
-    const response = await Moralis.EvmApi.balance.getNativeBalance({
-      chain: chainId,
-      address: walletAddress,
-    });
+    balanceInEth = await getNativeBalance(walletAddress);
 
-    const result = response.raw;
+    console.log("Native balance", balanceInEth);
 
-    return res.status(200).json({ result });
+    return res.status(200).json({ balanceInEth });
   } catch (e) {
     console.log("Error: " + e.message);
     return res.status(400).json();
   }
 });
 
+//FETCH ALL NFTS ON WALLET
 app.get("/nft/:walletAddress", async (req, res) => {
   try {
     const walletAddress = req.params.walletAddress;
 
-    const response = await Moralis.EvmApi.nft.getWalletNFTs({
-      chain: chainId,
-      format: "decimal",
-      mediaItems: true,
-      address: walletAddress,
-    });
+    nfts = await getWalletNFTs(walletAddress);
 
-    const result = response.raw;
+    console.log("NFTs", nfts);
 
-    return res.status(200).json({ result });
+    return res.status(200).json({ nfts });
   } catch (e) {
     console.log("Error: " + e.message);
     return res.status(400).json();
