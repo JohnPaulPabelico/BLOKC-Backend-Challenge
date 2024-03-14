@@ -1,77 +1,78 @@
+require("dotenv").config();
 const express = require("express");
-const { ethers } = require("ethers");
-const { JsonRpcProvider } = require("ethers/providers");
-
-const abi = require("../abi.json");
-
+const Moralis = require("moralis").default;
 const app = express();
+const cors = require("cors");
 const port = 3000;
+const moralisKey = process.env.MORALIS_API_KEY;
+const chainId = "0xa4b1";
 
-const provider = new JsonRpcProvider(
-  "https://public.stackup.sh/api/v1/node/arbitrum-sepolia"
-);
+app.use(cors());
+app.use(express.json());
 
+async function getNativeBalance(walletAddress) {
+  const balanceInWei = await Moralis.EvmApi.balance.getNativeBalance({
+    chain: chainId,
+    address: walletAddress,
+  });
+  const balanceInEth = balanceInWei.result.balance.ether;
+
+  return { balanceInEth };
+}
+
+async function getWalletNFTs(walletAddress) {
+  const nftsInWallet = await Moralis.EvmApi.nft.getWalletNFTs({
+    chain: chainId,
+    format: "decimal",
+    mediaItems: true,
+    address: walletAddress,
+  });
+
+  const nfts = nftsInWallet.result.map((nft) => ({
+    name: nft.result.name,
+    amount: nft.result.amount,
+    metadata: nft.result.metadata,
+  }));
+
+  return { nfts };
+}
+
+//FETCH NATIVE BALANCE OF WALLET
 app.get("/balance/:walletAddress", async (req, res) => {
   try {
     const walletAddress = req.params.walletAddress;
 
-    const balance = await provider.getBalance(walletAddress);
-    const formattedBalance = Number(balance) / 1e18;
+    balanceInEth = await getNativeBalance(walletAddress);
 
-    if (balance !== undefined) {
-      res.json({
-        formattedBalance: formattedBalance,
-      });
-    } else {
-      res.json({
-        status: "Error",
-        message: "Balance is undefined",
-        balanceWei: null,
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: "Error", message: "Internal Server Error" });
+    console.log("Native balance", balanceInEth);
+
+    return res.status(200).json({ balanceInEth });
+  } catch (e) {
+    console.log("Error: " + e.message);
+    return res.status(400).json();
   }
 });
 
+//FETCH ALL NFTS ON WALLET
 app.get("/nft/:walletAddress", async (req, res) => {
   try {
     const walletAddress = req.params.walletAddress;
 
-    // Replace with your NFT contract address and ABI
-    const nftContractAddress = "0xf955B76F2C35Ad72A1AcEDD97E007018966eeF16";
-    const nftContractABI = abi;
+    nfts = await getWalletNFTs(walletAddress);
 
-    const nftContract = new ethers.Contract(
-      nftContractAddress,
-      nftContractABI,
-      provider
-    );
+    console.log("NFTs", nfts);
 
-    // Specify a block range to avoid the "eth_getLogs is limited to a 10000 block range" error
-    const blockRange = { fromBlock: 0, toBlock: "latest" }; // Adjust the block range as needed
-
-    // Convert blockRange to blockTag for ethers.js
-    const blockTag = blockRange.toBlock;
-
-    const transferFilter = nftContract.filters.Transfer(null, walletAddress);
-    const ownedNFTs = await nftContract.queryFilter(transferFilter, blockTag);
-
-    // Log events for debugging
-    console.log("Transfer events:", ownedNFTs);
-
-    res.json({
-      ownedNFTs: ownedNFTs.map((event) => event.args.tokenId.toString()),
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return res.status(200).json({ nfts });
+  } catch (e) {
+    console.log("Error: " + e.message);
+    return res.status(400).json();
   }
 });
 
-app.listen(port, () =>
-  console.log(
-    `Example app listening on port ${port}! http://localhost:${port}/`
-  )
-);
+Moralis.start({
+  apiKey: moralisKey,
+}).then(() => {
+  app.listen(port, () => {
+    console.log(`Listening for API Calls on http://localhost:${port}/`);
+  });
+});
